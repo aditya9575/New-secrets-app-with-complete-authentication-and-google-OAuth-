@@ -1,0 +1,331 @@
+                creating detailed 1st authentication project steps 
+
+HERE WE DEMONSTRATE USER LOGIN FEATURE 
+
+--------------------------------------------------------------------------------------------------------
+
+create a project 
+npm init -y 
+npm i nodemon
+npm i ejs body-parser express mongoose 
+npm i dotenv
+
+create app.js
+and also create ejs file for ->
+(header , footer , home , login , register , submit , secrets)
+design the pages accordingly 
+on all pages when needed use ejs header and footer files
+
+*//on home page add register and login buttons which redirects to there respective pages
+  when tapped
+    
+   <a class="btn btn-light btn-lg" href="/register" role="button">Register</a>
+    <a class="btn btn-dark btn-lg" href="/login" role="button">Login</a>
+
+
+*//on register page design it and add a form with post method and two inputs 
+   email and password and then a submit button
+
+ <input type="email" class="form-control" name="username">
+ <input type="password" class="form-control" name="password">
+ <button type="submit" class="btn btn-dark">Register</button>
+
+
+*//on login page add a form with post method and add a form with post method and two inputs
+email and password and then a submit button with a label of "login"
+
+ <input type="email" class="form-control" name="username">
+ <input type="password" class="form-control" name="password">
+ <button type="submit" class="btn btn-dark">Login</button>
+
+
+
+--------------------------------------------------------------------------------------------------------
+                   //(now require all modules in created app.js file)
+
+require('dotenv').config();
+const express = require('express');
+const bodyParser = require('body-parser');
+const ejs = require("ejs");
+const mongoose = require("mongoose");
+
+
+// because we are in our final go using hashing 
+//we need to comment out this plugin and mongoose encryption
+//const encrypt = require("mongoose-encryption");
+
+const { env } = require('process');
+
+
+const app = express();
+
+
+//here we set our view engine to ejs inorder to be able to use ejs templating 
+
+app.use(express.static("public"));
+app.set('view engine', 'ejs');
+app.use(bodyParser.urlencoded({
+    extended: true
+}));
+
+
+//(NOTE:- now we connect to mongoDB via mongoose -> create  our schema defile our model 
+-> add get routes for all the pages -> define post routes for register and login inorder to authenticate 
+   the login and define our port connection at 3000)
+
+
+// connecting to our database via mongoose connection link 
+const mongoDB= "mongodb://127.0.0.1:27017/userDB";
+//using . connect method of mongoose
+mongoose.connect(mongoDB,{useNewUrlParser:true},
+    (err)=>{if(err){console.log("Mongodb not connected");}
+            else{console.log("mongoDB is connected");}
+           }
+            )
+
+// creating schema and because we are using mongoose's encryption package the schema will 
+// have new mongoose.schema
+const userSchema =new mongoose.Schema({
+    email: String,
+    password: String
+});
+
+//below this schema we can pass in our custom made encryption key 
+//const secret = "Thisismycustomsecretkey";
+//but we are now pasting this secret key into the .env file 
+//as a part of raising security IN THIS FORMAT->SECRET=Thisismycustomsecretkey
+
+//remember it has to be done before creating the model
+//this line below will encrypt the whole database but if you want to encrypt specific element 
+//const userSchema.plugin(encrypt,{secret:secret});
+
+//to encrypt specific element we can add a encryptedFields specifying it to the element which in this 
+//case is password and if we need to specify multiple elements we can do it by adding comma and element
+ 
+
+//userSchema.plugin(encrypt,{secret:process.env.SECRET, encryptedFields:["password"]});
+
+
+// because we are in our final go using hashing 
+//we need to comment out this plugin and mongoose encryption
+
+
+
+
+
+
+
+// creating model based on the above schema
+ 
+   const User = new mongoose.model("User",userSchema);
+
+//Note- the point which we require to create user is when it is done at registration page 
+ 
+--------------------------------------------------------------------------------------------------------
+//                            (Defining all the get routes)
+
+
+app.get("/", function(req, res){
+    res.render("home");
+});
+
+app.get("/login", function(req, res){
+    res.render("login");
+});
+
+app.get("/register", function(req, res){
+    res.render("register");
+});
+
+
+--------------------------------------------------------------------------------------------------------
+                                   //(DEFINING ALL THE POST ROUTES)
+// we define post method for register route and send back the secret file as we want to render it only 
+// after successful registration
+
+  app.post("/register", function(req,res){
+      const newUser = new User({
+          email: req.body.username,
+          password: req.body.password
+      });
+
+      newUser.save(function(err){
+          if(err){console.log(err);}
+          else{res.render("secrets");}
+      });
+  });
+
+
+//now we create a post method for login page where we actually check 
+//that if the user exists in our database or not
+(NOTE:- 
+
+
+app.post("/login", function(req,res){
+
+//here we create two consts as username and password 
+//which will be equal to the credentials entered by the user at the login page 
+    const username = req.body.username;
+    const password = req.body.password;
+
+//now we use the mongoose findOne method to authenticate 
+// we assigned email as the user name entered and a (function with error and foundUser as the arguments)
+//this function checks if err-> log the error else check 
+//->if foundUser check foundUser.password=== password and if all true render back the secrets file 
+  
+    User.findOne({email : username}, function(err , foundUser){
+        if(err){console.log(err);}
+        else{
+            if(foundUser){
+                if(foundUser.password=== password){
+                    res.render("secrets");
+                }
+            }
+        }
+    });
+});
+//KEY NOTE :--> here when we check the database it turns out to be level 1 authentication as in our 
+//database we can clearly see the JSON data which makes the access to user details like info/passwords
+//very easy 
+--------------------------------------------------------------------------------------------------------
+
+//level 2 authentication -> this envolves encryption
+we now use a mongoose encryption package 
+npm i mongoose-encryption
+
+//in app.js we now require it 
+const encrypt = require("mongoose-encryption");
+
+//--> to use this we now have to alter the schema and add "new mongoose.schema" to the above schema
+// which is without this thing
+--------------------------------------------------------------------------------------------------------
+
+//LEVEL 3 AUTHENTICATION
+
+1ST: Create a ".env" named file and cut and paste all the secret keys/ elements with 
+this format---> NAME=VALUE
+example DB_USER=ROOT	
+
+WE NOW USE .ENV FOR STORING OUR SECRET FILES 
+//but we are now pasting this secret key into the .env file 
+//as a part of raising security IN THIS FORMAT->SECRET=Thisismycustomsecretkey
+//to access we write secret:process.env.SECRET with NAME=VALUE format 
+
+--------------------------------------------------------------------------------------------------------
+
+//LEVEL 4 AUTHENTICATION
+//HASHING THE PASSWORDS (Here we use md5 package) 
+// to use it we need to remove encrypt const created above and also the plugin from our userSchema
+//and only after that we require this md5 package 
+
+
+//steps:- 
+npm install md5
+(now we require it )
+const md5 = require("md5");
+
+to use this hashing we just have to add md5 before the element 
+example
+password: req.body.password ----> to ----> password: md5(req.body.password)
+
+--------------------------------------------------------------------------------------------------------
+
+//Level 5 AUTHENTICATION 
+//adding cookies and sessions using PASSPORT.JS
+stop the server and install the following packages 
+
+ npm i passport passport-local passport-local-mongoose express-session
+(note the last package is session not sessions )
+//now we comment out everything in our app.post for our register and login routes as we will
+//authenticate via cookies 
+
+//(now below where we required mongoose we will require our modules )
+const session = require("express-session");
+const passport = require("passport");
+const passportLocalMongoose = require("passport-local-mongoose");
+
+//now we use session write this code just above mongoose.connect method and 
+//below the all of the other app.uses
+(we write another app.use with some paranthesis )
+app.use(session({
+
+       secret: "Our little secret.",
+       resave: false,
+       saveUninitialized: false
+                }));
+//now just below this app.use we write other app.use for our passport
+app.use(passport.initialize());
+app.use(passport.session());
+
+(NOW after our schema we add a plugin)
+schema name.plugin(passportLocalMongoose);
+
+example userSchema.plugin(passportLocalMongoose);
+
+
+(NOW RIGHT BELOW WHERE WE HAVE CREATED OUR MODEL )
+passport.use(User.createStrategy());
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+
+//Now in we define the post routes again 
+firstly we tap into our model that we created and call register method 
+//inside which we will firstly add username feild 
+//and initialize it with what user entered that comes from req.body.username ,
+//then we pass in the password which user entered ,
+//then we add in a callback function 
+//which potentially gives us an error if any or with the new registered user 
+
+ User.register({username: req.body.username}, req.body.password, function(err, user){
+       if(err){
+               console.log(err);
+                res.redirect("/register");
+              }else{
+        //we authenticate user with password 
+                   passport.authenticate("local")(req,res, function(){
+                                                             res.redirect("/secrets");
+                                                                   });
+
+
+//now we define the post routes for our login as well 
+ 
+const user = new User({
+username: req.body.username,
+password: req.body.password
+
+});
+
+//now we use passport to login the user and authenticate them 
+//for this we use the login function of passport 
+req.login(user,function(err){
+if(err){console.log(err);}
+else{passport.authenticate("local")(req,res, function(){
+res.redirect("/secrets");
+});
+})
+
+//we now also need to define the get route for logout functionality
+//remember inside our logout route we are now going to deAuthenticate our user and end our session 
+app.get("/logout", function(req,res){
+    req.logOut(function(err){
+        if(err){console.log(err);}
+        else{res.redirect("/");}
+    });
+    
+      
+});
+
+
+
+---------------------------------------------------------------------------------------------------------
+app.listen(3000, function(){
+    console.log("Server is up and running");
+});
+
+
+===============================================================================================================================
+
+in the end to run the server do 
+
+node app.js (in the terminal and then open localhost:3000 in your browser for it all to work )

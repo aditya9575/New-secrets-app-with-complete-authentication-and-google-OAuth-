@@ -1,0 +1,160 @@
+//1-we require everything 
+const express = require('express');
+const bodyParser = require('body-parser');
+const ejs = require("ejs");
+const mongoose = require("mongoose");
+const session = require("express-session");
+const passport = require("passport");
+const passportLocalMongoose = require("passport-local-mongoose");
+
+
+//2-we now use app method of express
+const app = express();
+
+
+//3-here we defined our view engine and enable our body parser 
+app.use(express.static("public"));
+app.set('view engine', 'ejs');
+app.use(bodyParser.urlencoded({
+    extended: true
+}));
+
+
+//4-> now we use session write this code just above mongoose.connect method and 
+//below the all of the other app.uses
+//(we write another app.use with some paranthesis )
+
+app.use(session({
+
+       secret: "Our little secret.",
+       resave: false,
+       saveUninitialized: false
+                }));
+
+app.use(passport.initialize());
+app.use(passport.session());
+
+
+
+//5-> connecting to our database via mongoose connection link 
+const mongoDB= "mongodb://127.0.0.1:27017/userDB";
+//using . connect method of mongoose
+mongoose.connect(mongoDB,{useNewUrlParser:true},
+    (err)=>{if(err){console.log("Mongodb not connected");}
+            else{console.log("mongoDB is connected");}
+           }
+            )
+         
+
+//6-> creating schema 
+const userSchema = new mongoose.Schema({
+    email: String,
+    password: String
+});
+
+
+//7-> (NOW after our schema we add a plugin) remember for plugin to work it has to be a schema
+userSchema.plugin(passportLocalMongoose);
+
+
+// 8-> creating model based on the above schema
+const User = new mongoose.model("User",userSchema);
+
+
+//9->(NOW RIGHT BELOW WHERE WE HAVE CREATED OUR MODEL )
+passport.use(User.createStrategy());
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+
+//now we define our get routes
+
+
+app.get("/", function(req, res){
+    res.render("home");
+});
+
+app.get("/login", function(req, res){
+    res.render("login");
+});
+
+
+app.get("/register", function(req, res){
+    res.render("register");
+});
+
+app.get("/secrets", function(req,res){
+   //here we check that if our user is authenticated or not using the isAuthenticated method
+    if(req.isAuthenticated()){
+        res.render("secrets");
+    }else {
+        res.redirect("/login");
+    }
+});
+
+//remember inside our logout route we are now going to deAuthenticate our user and end our session 
+app.get("/logout", function(req,res){
+    req.logOut(function(err){
+        if(err){console.log(err);}
+        else{res.redirect("/");}
+    });
+    
+      
+});
+
+
+//NOW WE DEFINE OUR POST routes
+
+app.post("/register", function(req,res){
+
+//Now in we define the post routes again 
+//firstly we tap into our model that we created and call register method 
+//inside which we will firstly add username feild 
+//and initialize it with what user entered that comes from req.body.username ,
+//then we pass in the password which user entered ,
+//then we add in a callback function 
+//which potentially gives us an error if any or with the new registered user 
+
+ User.register({username: req.body.username}, req.body.password, function(err, user){
+       if(err){
+               console.log(err);
+                res.redirect("/register");
+              }else{
+        //we authenticate user with password 
+                   passport.authenticate("local")(req,res, function(){
+                                                             res.redirect("/secrets");
+                                                                   });
+
+                                                                }
+
+                                                            });
+});
+
+
+app.post("/login", function(req,res){
+
+//now we define the post routes for our login as well 
+ 
+const user = new User({
+    username: req.body.username,
+    password: req.body.password
+    
+    });
+    
+    //now we use passport to login the user and authenticate them 
+    //for this we use the login function of passport 
+    req.login(user,function(err){
+    if(err){console.log(err);}
+    else{passport.authenticate("local")(req,res, function(){
+    res.redirect("/secrets");
+    });
+    }
+});
+
+});
+
+
+app.listen(3000, function(){
+    console.log("Server is up and running");
+});
+    
